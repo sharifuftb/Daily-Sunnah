@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { SUNNAHS, VIRTUES } from './data';
-import { SunnahItem, Category } from './types';
+import { SunnahItem, Category, SquareValue } from './types';
 import { getSunnahExplanation, searchVirtues } from './services/aiService';
+import { getBestMove } from './services/geminiService';
+import { calculateWinner } from './utils';
 
-type ViewState = 'home' | 'fajilat' | 'info';
+type ViewState = 'home' | 'fajilat' | 'game' | 'info';
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewState>('home');
@@ -25,6 +27,12 @@ const App: React.FC = () => {
   const [explanation, setExplanation] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
+  // Tic-Tac-Toe State
+  const [board, setBoard] = useState<SquareValue[]>(Array(9).fill(null));
+  const [isXNext, setIsXNext] = useState(true);
+  const [gameLoading, setGameLoading] = useState(false);
+  const winInfo = calculateWinner(board);
+
   // Search feature for Fajilat
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResult, setSearchResult] = useState<{text: string, sources: any[]} | null>(null);
@@ -41,6 +49,37 @@ const App: React.FC = () => {
     const completedIds = items.filter(i => i.completed).map(i => i.id);
     localStorage.setItem('sunnah_progress', JSON.stringify(completedIds));
   }, [items]);
+
+  // AI Move logic for Tic-Tac-Toe
+  useEffect(() => {
+    if (!isXNext && !winInfo && activeView === 'game') {
+      const makeAiMove = async () => {
+        setGameLoading(true);
+        const move = await getBestMove(board, 'O');
+        if (move !== undefined && board[move] === null) {
+          const nextBoard = board.slice();
+          nextBoard[move] = 'O';
+          setBoard(nextBoard);
+          setIsXNext(true);
+        }
+        setGameLoading(false);
+      };
+      makeAiMove();
+    }
+  }, [isXNext, board, winInfo, activeView]);
+
+  const handleSquareClick = (index: number) => {
+    if (board[index] || winInfo || !isXNext || gameLoading) return;
+    const nextBoard = board.slice();
+    nextBoard[index] = 'X';
+    setBoard(nextBoard);
+    setIsXNext(false);
+  };
+
+  const resetGame = () => {
+    setBoard(Array(9).fill(null));
+    setIsXNext(true);
+  };
 
   const toggleComplete = (id: number) => {
     setItems(prev => prev.map(item => 
@@ -193,7 +232,6 @@ const App: React.FC = () => {
         <h2 className="text-2xl font-bold text-emerald-200">ইবাদতের ফজিলত</h2>
       </div>
 
-      {/* AI Search Bar */}
       <div className="mb-8 bg-emerald-900/40 p-4 rounded-3xl border border-emerald-700/50 shadow-inner">
          <p className="text-emerald-400 text-[10px] font-bold uppercase mb-2 ml-2">ইন্টারনেট থেকে ফজিলত খুঁজুন (AI)</p>
          <div className="flex gap-2">
@@ -263,6 +301,60 @@ const App: React.FC = () => {
     </div>
   );
 
+  const renderGame = () => (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 text-center">
+      <h2 className="text-2xl font-bold text-emerald-200 mb-6 px-1">বিরতি নিন: AI এর সাথে খেলুন</h2>
+      
+      <div className="bg-emerald-900/40 border border-emerald-700/50 rounded-3xl p-8 shadow-2xl inline-block">
+        <div className="grid grid-cols-3 gap-2 w-64 h-64 mx-auto">
+          {board.map((val, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleSquareClick(idx)}
+              className={`
+                w-full h-full rounded-xl border-2 flex items-center justify-center text-3xl font-black transition-all
+                ${!val && !winInfo && isXNext && !gameLoading ? 'hover:bg-emerald-800/50 border-emerald-700/50' : 'border-emerald-800/30'}
+                ${val === 'X' ? 'text-emerald-400 bg-emerald-900/40 shadow-[0_0_15px_rgba(52,211,153,0.2)]' : ''}
+                ${val === 'O' ? 'text-rose-400 bg-rose-900/20' : ''}
+                ${winInfo?.line?.includes(idx) ? 'bg-emerald-500 text-white scale-105 shadow-[0_0_20px_rgba(255,255,255,0.4)]' : ''}
+              `}
+            >
+              {val}
+            </button>
+          ))}
+        </div>
+        
+        <div className="mt-8">
+          {winInfo ? (
+            <div className="mb-4">
+              <p className="text-xl font-bold text-white mb-2">
+                {winInfo.isDraw ? "খেলা ড্র হয়েছে!" : `${winInfo.winner} জিতেছে!`}
+              </p>
+            </div>
+          ) : (
+            <div className="mb-4 flex items-center justify-center gap-2">
+              {gameLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-emerald-400 text-sm">Gemini ভাবছে...</span>
+                </>
+              ) : (
+                <span className="text-emerald-200 text-sm">{isXNext ? "আপনার চাল (X)" : "Gemini-র চাল (O)"}</span>
+              )}
+            </div>
+          )}
+          <button 
+            onClick={resetGame}
+            className="px-6 py-2 bg-emerald-500 text-white rounded-full font-bold shadow-lg hover:bg-emerald-400 active:scale-95 transition-all text-sm"
+          >
+            আবার শুরু করুন
+          </button>
+        </div>
+      </div>
+      <p className="mt-6 text-emerald-400 text-[10px] italic">টিক-ট্যাক-টো গেমটি Gemini-3-Pro AI দ্বারা পরিচালিত</p>
+    </div>
+  );
+
   const renderInfo = () => (
     <div className="p-8 text-center animate-in fade-in duration-500">
       <div className="w-20 h-20 bg-emerald-500 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl">✨</div>
@@ -273,14 +365,14 @@ const App: React.FC = () => {
       <div className="bg-emerald-900/40 p-4 rounded-2xl border border-emerald-800 text-left mb-4">
         <h4 className="text-emerald-100 font-bold mb-2 text-sm">নতুন আপডেট:</h4>
         <ul className="text-emerald-400 text-xs space-y-1 list-disc ml-4">
+          <li>Gemini AI চালিত টিক-ট্যাক-টো গেম।</li>
           <li>ইন্টারনেট থেকে সরাসরি ফজিলত সার্চ করার সুবিধা।</li>
           <li>হজ্ব, রোজা ও মা-বাবার সেবার ফজিলত যুক্ত করা হয়েছে।</li>
-          <li>AI গ্রাউন্ডিং এর মাধ্যমে নির্ভরযোগ্য সোর্স প্রদর্শন।</li>
         </ul>
       </div>
       <div className="bg-emerald-900/40 p-4 rounded-2xl border border-emerald-800 text-left">
-        <h4 className="text-emerald-100 font-bold mb-1 text-sm">অ্যাপ ভার্সন: ১.৩.০</h4>
-        <p className="text-emerald-400 text-xs">জেমিলাই AI (গুগল সার্চ সাপোর্ট) এবং রিঅ্যাক্ট দিয়ে তৈরি।</p>
+        <h4 className="text-emerald-100 font-bold mb-1 text-sm">অ্যাপ ভার্সন: ১.৪.০</h4>
+        <p className="text-emerald-400 text-xs">জেমিলাই AI এবং রিঅ্যাক্ট দিয়ে তৈরি।</p>
       </div>
     </div>
   );
@@ -295,10 +387,11 @@ const App: React.FC = () => {
 
       {activeView === 'home' && renderHome()}
       {activeView === 'fajilat' && renderFajilat()}
+      {activeView === 'game' && renderGame()}
       {activeView === 'info' && renderInfo()}
 
       {/* Footer Nav (Floating) */}
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-emerald-900/90 backdrop-blur-xl border border-emerald-700/50 rounded-3xl p-4 flex justify-around shadow-2xl z-50">
+      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-md bg-emerald-900/95 backdrop-blur-xl border border-emerald-700/50 rounded-3xl p-4 flex justify-around shadow-2xl z-50">
         <button 
           onClick={() => setActiveView('home')}
           className={`flex flex-col items-center gap-1 transition-all ${activeView === 'home' ? 'text-emerald-300 scale-110' : 'text-emerald-700 hover:text-emerald-600'}`}
@@ -312,6 +405,13 @@ const App: React.FC = () => {
         >
           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
           <span className="text-[10px] font-bold">ফজিলত</span>
+        </button>
+        <button 
+          onClick={() => setActiveView('game')}
+          className={`flex flex-col items-center gap-1 transition-all ${activeView === 'game' ? 'text-emerald-300 scale-110' : 'text-emerald-700 hover:text-emerald-600'}`}
+        >
+          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20 6H4V4h16v2zM4 18h16v-2H4v2zm0-6h16v-2H4v2z"/></svg>
+          <span className="text-[10px] font-bold">খেলা</span>
         </button>
         <button 
           onClick={() => setActiveView('info')}
