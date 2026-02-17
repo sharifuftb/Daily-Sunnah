@@ -11,7 +11,7 @@ export const getSunnahExplanation = async (sunnahTitle: string): Promise<string>
     return response.text || "দুঃখিত, কোনো ব্যাখ্যা পাওয়া যায়নি।";
   } catch (error) {
     console.error("AI Error:", error);
-    return "AI এর মাধ্যমে তথ্য আনতে সমস্যা হচ্ছে। অনুগ্রহ করে পরে চেষ্টা করুন।";
+    return "AI এর মাধ্যমে তথ্য আনতে সমস্যা হচ্ছে।";
   }
 };
 
