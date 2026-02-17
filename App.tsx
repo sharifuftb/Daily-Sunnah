@@ -1,12 +1,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { SUNNAHS, VIRTUES } from './data.ts';
-import { SunnahItem, Category, SquareValue } from './types.ts';
+import { SunnahItem, Category } from './types.ts';
 import { getSunnahExplanation, searchVirtues } from './services/aiService.ts';
-import { getBestMove } from './services/geminiService.ts';
-import { calculateWinner } from './utils.ts';
 
-type ViewState = 'home' | 'fajilat' | 'game' | 'info';
+type ViewState = 'home' | 'fajilat' | 'info';
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewState>('home');
@@ -31,13 +29,6 @@ const App: React.FC = () => {
   const [explanation, setExplanation] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
-  // Tic-Tac-Toe State
-  const [board, setBoard] = useState<SquareValue[]>(Array(9).fill(null));
-  const [isXNext, setIsXNext] = useState(true);
-  const [gameLoading, setGameLoading] = useState(false);
-  const [score, setScore] = useState({ player: 0, ai: 0, draw: 0 });
-  const winInfo = calculateWinner(board);
-
   // Search feature for Fajilat
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResult, setSearchResult] = useState<{text: string, sources: any[]} | null>(null);
@@ -55,60 +46,6 @@ const App: React.FC = () => {
     const completedIds = items.filter(i => i.completed).map(i => i.id);
     localStorage.setItem('sunnah_progress', JSON.stringify(completedIds));
   }, [items]);
-
-  // Handle Winner Score
-  useEffect(() => {
-    if (winInfo) {
-      if (winInfo.isDraw) {
-        setScore(s => ({ ...s, draw: s.draw + 1 }));
-      } else if (winInfo.winner === 'X') {
-        setScore(s => ({ ...s, player: s.player + 1 }));
-      } else if (winInfo.winner === 'O') {
-        setScore(s => ({ ...s, ai: s.ai + 1 }));
-      }
-    }
-  }, [winInfo?.winner, winInfo?.isDraw]);
-
-  // AI Move logic for Tic-Tac-Toe
-  useEffect(() => {
-    if (!isXNext && !winInfo && activeView === 'game') {
-      const makeAiMove = async () => {
-        setGameLoading(true);
-        try {
-          await new Promise(r => setTimeout(r, 800)); // Natural delay
-          const move = await getBestMove(board, 'O');
-          if (move !== undefined && board[move] === null) {
-            setBoard(prev => {
-              const nextBoard = [...prev];
-              nextBoard[move] = 'O';
-              return nextBoard;
-            });
-            setIsXNext(true);
-          }
-        } catch (err) {
-          console.error("AI Move failed", err);
-        } finally {
-          setGameLoading(false);
-        }
-      };
-      makeAiMove();
-    }
-  }, [isXNext, board, winInfo, activeView]);
-
-  const handleSquareClick = (index: number) => {
-    if (board[index] || winInfo || !isXNext || gameLoading) return;
-    setBoard(prev => {
-      const nextBoard = [...prev];
-      nextBoard[index] = 'X';
-      return nextBoard;
-    });
-    setIsXNext(false);
-  };
-
-  const resetGame = () => {
-    setBoard(Array(9).fill(null));
-    setIsXNext(true);
-  };
 
   const toggleComplete = (id: number) => {
     setItems(prev => prev.map(item => 
@@ -313,57 +250,6 @@ const App: React.FC = () => {
     </div>
   );
 
-  const renderGame = () => (
-    <div className="animate-in text-center">
-      <h2 className="text-3xl font-black text-emerald-100 mb-2">AI চ্যালেঞ্জ</h2>
-      <p className="text-emerald-400 text-sm mb-8 font-bold">Gemini AI-র সাথে খেলুন!</p>
-      
-      <div className="flex justify-center gap-6 mb-8">
-        <div className="bg-emerald-900/40 px-6 py-4 rounded-3xl border border-emerald-700/30">
-           <p className="text-[10px] font-black text-emerald-500 uppercase mb-1">আপনি (X)</p>
-           <p className="text-2xl font-black text-white">{score.player}</p>
-        </div>
-        <div className="bg-emerald-900/40 px-6 py-4 rounded-3xl border border-emerald-700/30">
-           <p className="text-[10px] font-black text-emerald-500 uppercase mb-1">ড্র</p>
-           <p className="text-2xl font-black text-white">{score.draw}</p>
-        </div>
-        <div className="bg-emerald-900/40 px-6 py-4 rounded-3xl border border-emerald-700/30">
-           <p className="text-[10px] font-black text-rose-500 uppercase mb-1">Gemini (O)</p>
-           <p className="text-2xl font-black text-white">{score.ai}</p>
-        </div>
-      </div>
-
-      <div className="bg-emerald-900/20 border-2 border-emerald-700/30 rounded-[3rem] p-10 shadow-2xl inline-block">
-        <div className="grid grid-cols-3 gap-3 w-72 h-72 mx-auto">
-          {board.map((val, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleSquareClick(idx)}
-              className={`w-full h-full rounded-2xl border-2 flex items-center justify-center text-4xl font-black transition-all duration-300 ${!val && !winInfo && isXNext && !gameLoading ? 'hover:bg-emerald-500/20 border-emerald-800/50 active:scale-90' : 'border-emerald-800/20'} ${val === 'X' ? 'text-emerald-400' : ''} ${val === 'O' ? 'text-rose-400' : ''} ${winInfo?.line?.includes(idx) ? 'bg-emerald-500 text-white scale-110 shadow-2xl z-10' : ''}`}
-            >
-              {val}
-            </button>
-          ))}
-        </div>
-        <div className="mt-10">
-          {winInfo ? (
-            <div className="mb-6 animate-bounce text-2xl font-black text-white">{winInfo.isDraw ? "ড্র হয়েছে! 🤝" : winInfo.winner === 'X' ? "আপনি জিতেছেন! 🎉" : "Gemini জিতেছে! 🤖"}</div>
-          ) : (
-            <div className="mb-6 flex items-center justify-center gap-3 h-8">
-              {gameLoading ? (
-                <><div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div><span className="text-emerald-400 font-black text-xs">Gemini ভাবছে...</span></>
-              ) : (
-                <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase border ${isXNext ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-rose-500/20 border-rose-500 text-rose-400'}`}>{isXNext ? "আপনার পালা (X)" : "Gemini-র পালা (O)"}</div>
-              )}
-            </div>
-          )}
-          <button onClick={resetGame} className="px-10 py-4 bg-emerald-500 text-white rounded-2xl font-black shadow-lg hover:bg-emerald-400 hover:scale-105 active:scale-95 transition-all text-sm uppercase">আবার শুরু করুন</button>
-        </div>
-      </div>
-      <div className="h-28"></div>
-    </div>
-  );
-
   return (
     <div className="max-w-2xl mx-auto px-6 py-12 pb-40">
       <header className="text-center mb-16 animate-in">
@@ -374,12 +260,21 @@ const App: React.FC = () => {
       <main>
         {activeView === 'home' && renderHome()}
         {activeView === 'fajilat' && renderFajilat()}
-        {activeView === 'game' && renderGame()}
         {activeView === 'info' && (
            <div className="p-10 text-center animate-in">
               <div className="w-24 h-24 bg-gradient-to-tr from-emerald-500 to-emerald-300 rounded-[2rem] mx-auto mb-8 flex items-center justify-center text-4xl shadow-2xl rotate-12">✨</div>
               <h2 className="text-3xl font-black text-white mb-4">দৈনিক সুন্নাহ</h2>
               <p className="text-emerald-300 mb-10 text-lg leading-relaxed font-medium">প্রতিদিনের জীবনে রাসূলুল্লাহ (সা.) এর সুন্নাহগুলো মনে করিয়ে দিতে এই অ্যাপটি তৈরি করা হয়েছে।</p>
+              <div className="space-y-4 mb-10 text-left">
+                <div className="bg-emerald-900/30 p-6 rounded-[2rem] border border-emerald-800">
+                  <h4 className="text-emerald-100 font-black mb-3 text-sm">অ্যাপ আপডেট (v1.5.1)</h4>
+                  <ul className="text-emerald-400 text-sm space-y-2">
+                    <li>✓ গেম সেকশন সরিয়ে সুন্নাহতে গুরুত্ব দেওয়া হয়েছে।</li>
+                    <li>✓ নতুন ফজিলত ও সুন্নাহ ডাটাবেজ আপডেট।</li>
+                    <li>✓ উন্নত ও দ্রুত পারফরম্যান্স।</li>
+                  </ul>
+                </div>
+              </div>
               <div className="text-emerald-800 text-[10px] font-black uppercase tracking-[0.3em] mt-10">Made for the Ummah</div>
            </div>
         )}
@@ -387,15 +282,14 @@ const App: React.FC = () => {
 
       <nav className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-md px-6 z-50">
         <div className="bg-emerald-950/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-5 flex justify-around shadow-2xl">
-          {(['home', 'fajilat', 'game', 'info'] as const).map((view) => (
+          {(['home', 'fajilat', 'info'] as const).map((view) => (
             <button key={view} onClick={() => setActiveView(view)} className={`flex flex-col items-center gap-1.5 transition-all duration-500 ${activeView === view ? 'text-emerald-300 scale-125' : 'text-emerald-900'}`}>
               <div className={`p-2 rounded-2xl transition-all ${activeView === view ? 'bg-emerald-500/20' : ''}`}>
                 {view === 'home' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>}
                 {view === 'fajilat' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>}
-                {view === 'game' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20 6H4V4h16v2zM4 18h16v-2H4v2zm0-6h16v-2H4v2z"/></svg>}
                 {view === 'info' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>}
               </div>
-              <span className={`text-[10px] font-black uppercase tracking-widest ${activeView === view ? 'opacity-100' : 'opacity-0'}`}>{view === 'home' ? 'হোম' : view === 'fajilat' ? 'ফজিলত' : view === 'game' ? 'খেলা' : 'তথ্য'}</span>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${activeView === view ? 'opacity-100' : 'opacity-0'}`}>{view === 'home' ? 'হোম' : view === 'fajilat' ? 'ফজিলত' : 'তথ্য'}</span>
             </button>
           ))}
         </div>

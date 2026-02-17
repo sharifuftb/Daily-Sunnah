@@ -1,5 +1,7 @@
 
 export type Category = 'সকাল' | 'খাবার' | 'ঘুম' | 'সাধারণ' | 'মসজিদ';
+
+// Added SquareValue type to fix "Module has no exported member 'SquareValue'" errors in Tic-Tac-Toe related files
 export type SquareValue = 'X' | 'O' | null;
 
 export interface SunnahItem {
