@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { SUNNAHS, VIRTUES } from './data.ts';
 import { SunnahItem, Category } from './types.ts';
-import { getSunnahExplanation, searchVirtues } from './services/aiService.ts';
+import { getSunnahExplanation } from './services/aiService.ts';
 
 type ViewState = 'home' | 'fajilat' | 'info';
 
@@ -28,11 +28,6 @@ const App: React.FC = () => {
   const [explainingId, setExplainingId] = useState<number | null>(null);
   const [explanation, setExplanation] = useState<string>('');
   const [loading, setLoading] = useState(false);
-
-  // Search feature for Fajilat
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchResult, setSearchResult] = useState<{text: string, sources: any[]} | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
 
   // Daily Sunnah logic
   const dailySunnah = useMemo(() => {
@@ -70,19 +65,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchTerm.trim()) return;
-    setIsSearching(true);
-    try {
-      const result = await searchVirtues(searchTerm);
-      setSearchResult(result);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
   const filteredItems = useMemo(() => {
     if (filter === 'সব') return items;
     return items.filter(i => i.category === filter);
@@ -97,7 +79,7 @@ const App: React.FC = () => {
       {/* Daily Highlight */}
       <div className="mb-10">
         <h2 className="text-xl font-bold text-emerald-200 mb-4 px-1 flex items-center gap-2">
-          <span className="text-2xl">✨</span> আজকের বিশেষ সুন্নাহ
+          <span className="text-2xl">✨</span> বিশেষ সুন্নাহ
         </h2>
         <div className="bg-gradient-to-br from-emerald-600 to-emerald-900 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-4 opacity-10 scale-150 group-hover:scale-110 transition-transform duration-700">
@@ -191,46 +173,6 @@ const App: React.FC = () => {
     <div className="animate-in">
       <h2 className="text-3xl font-black text-emerald-100 mb-8">ইবাদতের ফজিলত</h2>
       
-      {/* AI Search Bar */}
-      <div className="mb-10 bg-emerald-900/40 p-6 rounded-[2.5rem] border border-emerald-700/40 shadow-2xl">
-         <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-3 ml-2">Search with Google Grounding</p>
-         <div className="flex gap-3">
-            <input 
-              type="text" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="যেমন: জিকিরের ফজিলত..." 
-              className="flex-1 bg-emerald-950/80 border-2 border-emerald-800/50 rounded-2xl px-5 py-3 text-sm text-emerald-50 placeholder:text-emerald-800 focus:outline-none focus:border-emerald-500"
-            />
-            <button 
-              onClick={handleSearch}
-              disabled={isSearching}
-              className="bg-emerald-500 hover:bg-emerald-400 text-white px-6 py-3 rounded-2xl text-sm font-black disabled:opacity-50 transition-all flex items-center justify-center min-w-[80px]"
-            >
-              {isSearching ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : 'সার্চ'}
-            </button>
-         </div>
-         {searchResult && (
-           <div className="mt-6 p-6 bg-emerald-950 rounded-3xl border border-emerald-500/30 animate-in">
-              <div className="flex justify-between items-center mb-4 pb-2 border-b border-emerald-900">
-                <h4 className="text-emerald-400 text-xs font-black">AI ফলাফল</h4>
-                <button onClick={() => setSearchResult(null)} className="text-emerald-700 hover:text-rose-500"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg></button>
-              </div>
-              <p className="text-emerald-50 text-base leading-relaxed mb-6 font-medium whitespace-pre-line">{searchResult.text}</p>
-              {searchResult.sources.length > 0 && (
-                <div className="bg-emerald-900/20 p-4 rounded-2xl">
-                   <p className="text-[10px] text-emerald-500 font-black mb-2 uppercase">উৎসসমূহ:</p>
-                   <div className="flex flex-wrap gap-2">
-                     {searchResult.sources.map((chunk: any, i: number) => chunk.web && (
-                       <a key={i} href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="text-[10px] bg-emerald-800/40 px-3 py-1.5 rounded-lg text-emerald-300 border border-emerald-700/50">🔗 {chunk.web.title || 'ওয়েবসাইট'}</a>
-                     ))}
-                   </div>
-                </div>
-              )}
-           </div>
-         )}
-      </div>
-
       <div className="grid gap-5">
         {VIRTUES.map(virtue => (
           <div key={virtue.id} className="bg-emerald-800/10 border border-emerald-800/30 p-8 rounded-[2rem] relative overflow-hidden shadow-xl hover:bg-emerald-800/20 transition-all border-l-4 border-l-emerald-500/50">
@@ -252,11 +194,6 @@ const App: React.FC = () => {
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-12 pb-40">
-      <header className="text-center mb-16 animate-in">
-        <h1 className="text-5xl font-black text-white mb-4 drop-shadow-2xl">দৈনিক সুন্নাহ</h1>
-        <div className="w-16 h-1.5 bg-emerald-500 mx-auto rounded-full shadow-lg"></div>
-      </header>
-
       <main>
         {activeView === 'home' && renderHome()}
         {activeView === 'fajilat' && renderFajilat()}
@@ -269,7 +206,7 @@ const App: React.FC = () => {
                 <div className="bg-emerald-900/30 p-6 rounded-[2rem] border border-emerald-800">
                   <h4 className="text-emerald-100 font-black mb-3 text-sm">অ্যাপ আপডেট (v1.5.1)</h4>
                   <ul className="text-emerald-400 text-sm space-y-2">
-                    <li>✓ গেম সেকশন সরিয়ে সুন্নাহতে গুরুত্ব দেওয়া হয়েছে।</li>
+                    <li>✓ ইন্টারফেস আরও সহজ ও সুন্দর করা হয়েছে।</li>
                     <li>✓ নতুন ফজিলত ও সুন্নাহ ডাটাবেজ আপডেট।</li>
                     <li>✓ উন্নত ও দ্রুত পারফরম্যান্স।</li>
                   </ul>

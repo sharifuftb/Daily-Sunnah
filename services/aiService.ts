@@ -14,24 +14,3 @@ export const getSunnahExplanation = async (sunnahTitle: string): Promise<string>
     return "AI এর মাধ্যমে তথ্য আনতে সমস্যা হচ্ছে।";
   }
 };
-
-export const searchVirtues = async (query: string): Promise<{text: string, sources: any[]}> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `ইসলামী ইবাদতের ফজিলত সম্পর্কে তথ্য দিন: "${query}"। উত্তরটি বাংলায় দিন এবং নির্ভরযোগ্য হাদিসের রেফারেন্স দিন।`,
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
-    });
-
-    return {
-      text: response.text || "দুঃখিত, কোনো তথ্য পাওয়া যায়নি।",
-      sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || []
-    };
-  } catch (error) {
-    console.error("Search Error:", error);
-    return { text: "সার্চ করতে সমস্যা হয়েছে।", sources: [] };
-  }
-};
